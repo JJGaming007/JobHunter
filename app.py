@@ -7,7 +7,6 @@ This single process runs BOTH the Flask GUI and the job-scraping scheduler.
 No need for a second terminal.
 """
 
-import sqlite3
 import os
 import sys
 import json
@@ -27,7 +26,6 @@ from flask_login import (LoginManager, UserMixin,
 BASE_DIR = Path(__file__).parent
 sys.path.insert(0, str(BASE_DIR))
 
-DB_PATH  = Path(os.environ.get("DB_PATH",  str(BASE_DIR / "jobs.db")))
 LOG_PATH = Path(os.environ.get("LOG_PATH", str(BASE_DIR / "job_hunter.log")))
 
 # ── Logging (must be configured before importing main) ────────────────────────
@@ -48,8 +46,11 @@ logging.getLogger("werkzeug").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
 
+import psycopg2
+import psycopg2.extras
+
 import config
-from database import init_db, create_user, verify_user, get_user_by_id, list_users, JobDatabase
+from database import init_db, create_user, verify_user, get_user_by_id, list_users, JobDatabase, DATABASE_URL
 from main import run_job_hunt
 
 # Run migrations + seed first admin if no users exist
@@ -112,18 +113,27 @@ _scheduler_thread.start()
 # ── DB helpers ─────────────────────────────────────────────────────────────────
 
 def _conn():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = psycopg2.connect(DATABASE_URL)
     return conn
 
 def query(sql, params=()):
-    with _conn() as c:
-        return [dict(r) for r in c.execute(sql, params).fetchall()]
+    conn = _conn()
+    try:
+        with conn:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                cur.execute(sql, params)
+                return [dict(r) for r in cur.fetchall()]
+    finally:
+        conn.close()
 
 def execute(sql, params=()):
-    with _conn() as c:
-        c.execute(sql, params)
-        c.commit()
+    conn = _conn()
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, params)
+    finally:
+        conn.close()
 
 
 # ── Auth routes ────────────────────────────────────────────────────────────────
@@ -182,15 +192,10 @@ def index():
 @app.route("/api/stats")
 @login_required
 def api_stats():
-    if not DB_PATH.exists():
-        return jsonify({"total": 0, "today": 0, "easy_apply": 0,
-                        "applied": 0, "best_score": 0,
-                        "platforms": [], "work_types": [], "scraping": _scrape_running})
-
     rows = query("""
         SELECT
             COUNT(*) as total,
-            SUM(CASE WHEN date(found_date) = date('now','localtime') THEN 1 ELSE 0 END) as today,
+            SUM(CASE WHEN found_date::date = CURRENT_DATE THEN 1 ELSE 0 END) as today,
             SUM(easy_apply) as easy_apply,
             SUM(applied)    as applied,
             MAX(score)      as best_score
@@ -239,29 +244,29 @@ def api_jobs():
         sort_col = "score"
     sort_dir = "DESC" if sort_dir == "desc" else "ASC"
 
-    where  = ["score >= ?"]
+    where  = ["score >= %s"]
     params = [min_score]
 
     if platform:
-        where.append("platform = ?")
+        where.append("platform = %s")
         params.append(platform)
     if work_type:
-        where.append("work_type = ?")
+        where.append("work_type = %s")
         params.append(work_type)
     if country:
-        where.append("country = ?")
+        where.append("country = %s")
         params.append(country)
     if easy_only:
         where.append("easy_apply = 1")
     uid = current_user.id
     if applied == "yes":
-        where.append("EXISTS (SELECT 1 FROM user_jobs uj WHERE uj.job_id=jobs.id AND uj.user_id=? AND uj.applied=1)")
+        where.append("EXISTS (SELECT 1 FROM user_jobs uj WHERE uj.job_id=jobs.id AND uj.user_id=%s AND uj.applied=1)")
         params.append(uid)
     elif applied == "no":
-        where.append("NOT EXISTS (SELECT 1 FROM user_jobs uj WHERE uj.job_id=jobs.id AND uj.user_id=? AND uj.applied=1)")
+        where.append("NOT EXISTS (SELECT 1 FROM user_jobs uj WHERE uj.job_id=jobs.id AND uj.user_id=%s AND uj.applied=1)")
         params.append(uid)
     if search:
-        where.append("(LOWER(title) LIKE ? OR LOWER(company) LIKE ?)")
+        where.append("(LOWER(title) LIKE %s OR LOWER(company) LIKE %s)")
         params += [f"%{search}%", f"%{search}%"]
 
     sql = f"""
@@ -281,7 +286,7 @@ def api_jobs():
 @app.route("/api/open/<int:job_id>", methods=["POST"])
 @login_required
 def api_open(job_id):
-    rows = query("SELECT url FROM jobs WHERE id = ?", (job_id,))
+    rows = query("SELECT url FROM jobs WHERE id = %s", (job_id,))
     if not rows:
         return jsonify({"ok": False}), 404
     webbrowser.open(rows[0]["url"])
