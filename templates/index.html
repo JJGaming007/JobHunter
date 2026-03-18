@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>NEXUS INTEL — Games QA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700&display=swap"/>
+<style>
+/* ══════════════════════════════════════════════════════════
+   DESIGN TOKENS — BIOPUNK NIGHT OPS
+   Inspiration: night-vision HUDs, biohazard terminals,
+   the cold phosphor glow of QA consoles at 3am.
+══════════════════════════════════════════════════════════ */
+:root{
+  --void:#010802;
+  --deep:#020d03;
+  --panel:#041006;
+  --surface:#061409;
+  --lift:#0a1c0d;
+  --border:rgba(57,255,20,.08);
+  --border-hi:rgba(57,255,20,.28);
+  --fire:#39ff14;
+  --fire-dim:rgba(57,255,20,.1);
+  --fire-glow:0 0 22px rgba(57,255,20,.22);
+  --gold:#00ff88;
+  --gold-dim:rgba(0,255,136,.1);
+  --acid:#7fff00;
+  --acid-dim:rgba(127,255,0,.1);
+  --red:#ff3040;
+  --red-dim:rgba(255,48,64,.1);
+  --text:#60a870;
+  --text-hi:#c0f0c0;
+  --muted:#0a2c0a;
+  --muted-hi:#2a7a3a;
+  --radius:4px;
+  --font-head:'Chakra Petch',sans-serif;
+  --font-ui:'Barlow Condensed',sans-serif;
+  --font-mono:'Share Tech Mono',monospace;
+
+  /* Alias --cyan → --fire so all var(--cyan) references work unchanged */
+  --cyan:var(--fire);
+  --cyan-dim:var(--fire-dim);
+  --green:var(--acid);
+  --green-dim:var(--acid-dim);
+  --amber:var(--gold);
+  --amber-dim:var(--gold-dim);
+}
+
+/* ══════════════════════════════════════════════════════════
+   RESET + BASE
+══════════════════════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  background:var(--void);
+  color:var(--text);
+  font-family:var(--font-ui);
+  font-size:14px;
+  min-height:100vh;
+  overflow-x:hidden;
+}
+
+/* ── HEX GRID BACKGROUND ───────────────────────────────── */
+body::before{
+  content:'';
+  position:fixed;inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='100'%3E%3Cpath d='M28 66L0 50V18L28 2l28 16v32z' fill='none' stroke='rgba(57,255,20,0.05)' stroke-width='1'/%3E%3Cpath d='M28 100L0 84V52L28 36l28 16v32z' fill='none' stroke='rgba(57,255,20,0.05)' stroke-width='1'/%3E%3Cpath d='M56 66L28 50V18L56 2' fill='none' stroke='rgba(57,255,20,0.05)' stroke-width='1'/%3E%3C/svg%3E");
+  background-size:56px 100px;
+  pointer-events:none;
+  z-index:0;
+}
+body>*{position:relative;z-index:1}
+
+/* ══════════════════════════════════════════════════════════
+   NAVBAR
+══════════════════════════════════════════════════════════ */
+.nav{
+  position:sticky;top:0;z-index:100;
+  background:rgba(1,8,2,.94);
+  backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--border);
+  padding:0 24px;
+  height:58px;
+  display:flex;align-items:center;justify-content:space-between;
+  overflow:hidden;
+}
+/* Scan sweep */
+.nav::after{
+  content:'';
+  position:absolute;left:0;right:0;top:0;
+  height:1px;
+  background:linear-gradient(90deg,transparent 0%,var(--cyan) 50%,transparent 100%);
+  opacity:0;
+  animation:sweep 6s ease-in-out infinite;
+}
+@keyframes sweep{
+  0%,100%{opacity:0;transform:translateX(-100%)}
+  20%{opacity:.8}
+  80%{opacity:.8}
+  99%{opacity:0;transform:translateX(200%)}
+}
+
+.nav-logo{
+  display:flex;align-items:center;gap:12px;
+  font-family:var(--font-head);
+  font-size:16px;
+  color:var(--text-hi);
+  letter-spacing:2px;
+  text-transform:uppercase;
+}
+.nav-logo-icon{
+  width:32px;height:32px;
+  background:linear-gradient(135deg,#39ff14,#00cc44);
+  border-radius:4px;
+  display:grid;place-items:center;
+  font-size:16px;
+  box-shadow:0 0 14px rgba(57,255,20,.4);
+}
+.nav-status{
+  display:flex;align-items:center;gap:6px;
+  font-size:11px;
+  font-family:var(--font-mono);
+  color:var(--muted-hi);
+  letter-spacing:.5px;
+}
+.nav-status .dot{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--green);
+  box-shadow:0 0 8px var(--green);
+  animation:pulse-dot 2s ease-in-out infinite;
+}
+@keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
+.nav-right{display:flex;align-items:center;gap:10px}
+
+/* ── SCAN BUTTON ─────────────────────────────────────────── */
+.btn-scan{
+  font-family:var(--font-ui);
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:1.5px;
+  text-transform:uppercase;
+  background:transparent;
+  border:1px solid var(--cyan);
+  color:var(--cyan);
+  border-radius:var(--radius);
+  padding:7px 18px;
+  cursor:pointer;
+  display:flex;align-items:center;gap:8px;
+  transition:all .2s;
+  position:relative;
+  overflow:hidden;
+}
+.btn-scan::before{
+  content:'';
+  position:absolute;inset:0;
+  background:var(--cyan);
+  transform:translateX(-100%);
+  transition:transform .3s;
+  z-index:0;
+}
+.btn-scan:hover::before,.btn-scan.running::before{transform:translateX(0)}
+.btn-scan>*{position:relative;z-index:1}
+.btn-scan:hover{color:var(--void);box-shadow:0 0 20px rgba(57,255,20,.35)}
+.btn-scan.running{color:var(--void);pointer-events:none}
+.btn-scan .spin{
+  width:12px;height:12px;
+  border:2px solid rgba(0,0,0,.3);
+  border-top-color:var(--void);
+  border-radius:50%;
+  display:none;
+  animation:spin .6s linear infinite;
+}
+.btn-scan.running .spin{display:block}
+.btn-scan.running .scan-icon{display:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ══════════════════════════════════════════════════════════
+   STATS BAR
+══════════════════════════════════════════════════════════ */
+.stats-bar{
+  display:grid;
+  grid-template-columns:repeat(5,1fr);
+  gap:1px;
+  border-bottom:1px solid var(--border);
+  background:var(--border);
+}
+.stat-card{
+  position:relative;
+  background:var(--deep);
+  padding:18px 20px 16px;
+  overflow:hidden;
+  cursor:default;
+  transition:background .2s;
+}
+.stat-card:hover{background:var(--panel)}
+
+/* Corner brackets */
+.stat-card::before,.stat-card::after{
+  content:'';
+  position:absolute;
+  width:10px;height:10px;
+  border-color:var(--border-hi);
+  border-style:solid;
+  opacity:0;
+  transition:opacity .3s;
+}
+.stat-card:hover::before,.stat-card:hover::after{opacity:1}
+.stat-card::before{top:6px;left:6px;border-width:1px 0 0 1px}
+.stat-card::after{bottom:6px;right:6px;border-width:0 1px 1px 0}
+
+.stat-label{
+  font-size:9px;
+  font-weight:700;
+  letter-spacing:2px;
+  text-transform:uppercase;
+  color:var(--muted-hi);
+  margin-bottom:8px;
+}
+.stat-num{
+  font-family:var(--font-mono);
+  font-size:30px;
+  font-weight:600;
+  line-height:1;
+  transition:color .3s;
+}
+.stat-card:nth-child(1) .stat-num{color:var(--fire)}
+.stat-card:nth-child(2) .stat-num{color:var(--acid)}
+.stat-card:nth-child(3) .stat-num{color:var(--gold)}
+.stat-card:nth-child(4) .stat-num{color:var(--fire)}
+.stat-card:nth-child(5) .stat-num{color:#00ffcc}
+
+/* ══════════════════════════════════════════════════════════
+   FILTER ZONE
+══════════════════════════════════════════════════════════ */
+.filters{
+  background:var(--deep);
+  border-bottom:1px solid var(--border);
+  padding:14px 24px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.filter-row{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:10px;
+}
+.filter-label{
+  font-size:9px;
+  font-weight:700;
+  letter-spacing:2px;
+  text-transform:uppercase;
+  color:var(--muted-hi);
+  white-space:nowrap;
+  min-width:60px;
+}
+
+/* Chips */
+.chip-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:5px;
+}
+.chip{
+  font-family:var(--font-ui);
+  font-size:11px;
+  font-weight:600;
+  letter-spacing:.5px;
+  background:transparent;
+  border:1px solid var(--border);
+  color:var(--muted-hi);
+  border-radius:3px;
+  padding:4px 10px;
+  cursor:pointer;
+  transition:all .15s;
+  white-space:nowrap;
+}
+.chip:hover{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.chip.active{
+  background:var(--cyan);
+  border-color:var(--cyan);
+  color:var(--void);
+  box-shadow:0 0 12px rgba(57,255,20,.3);
+}
+.chip.active-green{background:var(--green);border-color:var(--green);color:var(--void);box-shadow:0 0 12px rgba(127,255,0,.3)}
+.chip.active-amber{background:var(--amber);border-color:var(--amber);color:var(--void);box-shadow:0 0 12px rgba(0,255,136,.3)}
+
+/* Inputs */
+.filter-input{
+  background:var(--panel);
+  border:1px solid var(--border);
+  color:var(--text-hi);
+  font-family:var(--font-ui);
+  font-size:13px;
+  border-radius:var(--radius);
+  padding:6px 12px;
+  outline:none;
+  transition:border-color .2s;
+  min-width:0;
+}
+.filter-input:focus{border-color:var(--cyan)}
+.filter-input::placeholder{color:var(--muted-hi)}
+
+.score-wrap{
+  display:flex;align-items:center;gap:8px;
+  font-size:12px;color:var(--muted-hi);
+}
+input[type=range]{
+  -webkit-appearance:none;
+  width:90px;height:3px;
+  background:var(--muted);
+  border-radius:2px;
+  outline:none;
+  cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;
+  width:13px;height:13px;
+  background:var(--cyan);
+  border-radius:50%;
+  box-shadow:0 0 8px rgba(57,255,20,.5);
+}
+.score-val{
+  font-family:var(--font-mono);
+  font-size:12px;
+  color:var(--cyan);
+  font-weight:600;
+  min-width:26px;
+}
+
+/* Country scroll row */
+.country-scroll{
+  display:flex;
+  gap:5px;
+  overflow-x:auto;
+  padding-bottom:2px;
+  scrollbar-width:none;
+}
+.country-scroll::-webkit-scrollbar{display:none}
+
+.btn-reset{
+  margin-left:auto;
+  font-family:var(--font-ui);
+  font-size:11px;
+  font-weight:600;
+  letter-spacing:1px;
+  text-transform:uppercase;
+  background:transparent;
+  border:1px solid var(--border);
+  color:var(--muted-hi);
+  border-radius:var(--radius);
+  padding:5px 12px;
+  cursor:pointer;
+  transition:all .2s;
+}
+.btn-reset:hover{border-color:var(--red);color:var(--red)}
+
+/* ══════════════════════════════════════════════════════════
+   INTEL TABLE
+══════════════════════════════════════════════════════════ */
+.table-section{margin:0;overflow:hidden}
+
+.table-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:12px 24px;
+  border-bottom:1px solid var(--border);
+  background:var(--deep);
+}
+.table-title{
+  font-family:var(--font-ui);
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:3px;
+  text-transform:uppercase;
+  color:var(--muted-hi);
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.table-title::before{
+  content:'';
+  display:inline-block;
+  width:3px;height:14px;
+  background:var(--cyan);
+  border-radius:2px;
+}
+.table-count{
+  font-family:var(--font-mono);
+  font-size:11px;
+  color:var(--cyan);
+}
+
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+
+thead tr{
+  background:var(--panel);
+  border-bottom:1px solid var(--border);
+}
+th{
+  font-family:var(--font-ui);
+  font-size:9px;
+  font-weight:700;
+  letter-spacing:2px;
+  text-transform:uppercase;
+  color:var(--muted-hi);
+  padding:10px 14px;
+  text-align:left;
+  white-space:nowrap;
+  cursor:pointer;
+  user-select:none;
+  transition:color .15s;
+}
+th:hover{color:var(--text-hi)}
+th.sorted-asc::after{content:' ↑';color:var(--cyan)}
+th.sorted-desc::after{content:' ↓';color:var(--cyan)}
+th:first-child{cursor:default}
+
+tbody tr{
+  border-bottom:1px solid rgba(57,255,20,.04);
+  border-left:3px solid transparent;
+  transition:all .15s;
+  cursor:default;
+}
+tbody tr:hover{
+  background:rgba(57,255,20,.04);
+  border-left-color:var(--fire);
+}
+tbody tr.applied-row{opacity:.4}
+tbody tr.score-hi{border-left-color:var(--green)}
+tbody tr.score-mid{border-left-color:var(--amber)}
+tbody tr.score-lo{border-left-color:var(--muted)}
+
+td{
+  padding:11px 14px;
+  vertical-align:middle;
+  font-size:13px;
+}
+
+/* Job title link */
+.job-link{
+  color:var(--text-hi);
+  text-decoration:none;
+  font-size:13px;
+  font-weight:500;
+  transition:color .15s;
+}
+.job-link:hover{color:var(--cyan)}
+.job-company{
+  font-size:11px;
+  color:var(--muted-hi);
+  margin-top:2px;
+}
+
+/* Platform badges */
+.plat{
+  display:inline-block;
+  font-family:var(--font-mono);
+  font-size:9px;
+  font-weight:600;
+  letter-spacing:1px;
+  padding:3px 7px;
+  border-radius:3px;
+  text-transform:uppercase;
+}
+.plat-linkedin{background:#001a08;color:#00cc66;border:1px solid #004a1a}
+.plat-indeed{background:#001810;color:#00e07a;border:1px solid #004830}
+.plat-naukri{background:#021800;color:#39ff14;border:1px solid #0a4800}
+.plat-hitmarker{background:#061800;color:#7fff00;border:1px solid #144800}
+.plat-workwithindies{background:#031400;color:#aaff00;border:1px solid #0c3800}
+.plat-zip_recruiter{background:#001808;color:#00ffaa;border:1px solid #004828}
+.plat-default{background:var(--panel);color:var(--muted-hi);border:1px solid var(--border)}
+
+/* Work type */
+.wtype{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  font-size:10px;
+  font-weight:600;
+  letter-spacing:.5px;
+  padding:3px 8px;
+  border-radius:3px;
+  white-space:nowrap;
+}
+.wtype-remote{background:rgba(57,255,20,.07);color:var(--fire);border:1px solid rgba(57,255,20,.2)}
+.wtype-hybrid{background:rgba(0,255,136,.08);color:var(--gold);border:1px solid rgba(0,255,136,.2)}
+.wtype-on-site{background:rgba(127,255,0,.07);color:var(--acid);border:1px solid rgba(127,255,0,.18)}
+
+/* Country display */
+.country-cell{
+  font-family:var(--font-mono);
+  font-size:11px;
+  color:var(--muted-hi);
+  display:flex;
+  align-items:center;
+  gap:5px;
+  white-space:nowrap;
+}
+
+/* Easy apply badge */
+.easy-badge{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:9px;font-weight:700;letter-spacing:.5px;
+  padding:2px 7px;border-radius:3px;
+  background:rgba(57,255,20,.07);
+  color:var(--fire);
+  border:1px solid rgba(57,255,20,.28);
+}
+
+/* Segmented score bar */
+.score-cell{white-space:nowrap}
+.score-num{
+  font-family:var(--font-mono);
+  font-size:13px;
+  font-weight:600;
+  display:inline-block;
+  min-width:28px;
+  margin-right:6px;
+}
+.seg-bar{display:inline-flex;gap:2px;vertical-align:middle}
+.seg{
+  display:inline-block;
+  width:6px;height:11px;
+  border-radius:1px;
+  background:rgba(255,255,255,.07);
+}
+.seg.on-green{background:var(--fire);box-shadow:0 0 4px rgba(57,255,20,.6)}
+.seg.on-amber{background:var(--gold);box-shadow:0 0 4px rgba(0,255,136,.4)}
+.seg.on-muted{background:var(--muted-hi)}
+
+/* Action buttons */
+.btn-open,.btn-apply{
+  font-family:var(--font-ui);
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:1px;
+  text-transform:uppercase;
+  border-radius:3px;
+  padding:4px 10px;
+  cursor:pointer;
+  transition:all .15s;
+  border:1px solid;
+}
+.btn-open{
+  background:transparent;
+  border-color:var(--border);
+  color:var(--muted-hi);
+}
+.btn-open:hover{border-color:var(--fire);color:var(--fire);background:var(--fire-dim)}
+.btn-apply{
+  background:transparent;
+  border-color:rgba(57,255,20,.3);
+  color:var(--fire);
+}
+.btn-apply:hover{background:var(--fire-dim);border-color:var(--fire)}
+.btn-apply.done{
+  background:rgba(57,255,20,.1);
+  border-color:var(--fire);
+  color:var(--fire);
+  cursor:pointer;
+}
+.btn-apply.done:hover{background:var(--red-dim);border-color:var(--red);color:var(--red)}
+
+.actions{display:flex;gap:5px;white-space:nowrap}
+
+/* Empty state */
+.empty-state{
+  text-align:center;
+  padding:80px 20px;
+  color:var(--muted-hi);
+  font-family:var(--font-mono);
+  font-size:13px;
+}
+.empty-icon{font-size:48px;margin-bottom:16px;opacity:.4}
+.empty-msg{letter-spacing:1px;margin-bottom:6px}
+.empty-sub{font-size:11px;color:var(--muted);letter-spacing:.5px}
+
+/* ══════════════════════════════════════════════════════════
+   LOG VIEWER
+══════════════════════════════════════════════════════════ */
+.log-section{
+  border-top:1px solid var(--border);
+  background:var(--deep);
+}
+.log-toggle{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 24px;
+  cursor:pointer;
+  transition:background .15s;
+}
+.log-toggle:hover{background:rgba(57,255,20,.03)}
+.log-toggle-label{
+  font-size:9px;font-weight:700;letter-spacing:3px;
+  text-transform:uppercase;color:var(--muted-hi);
+  display:flex;align-items:center;gap:8px;
+}
+.log-toggle-label::before{
+  content:'';width:3px;height:14px;
+  background:var(--green);border-radius:2px;
+}
+.log-chevron{
+  font-size:12px;color:var(--muted-hi);
+  transition:transform .2s;
+}
+.log-chevron.open{transform:rotate(180deg)}
+.log-box{
+  display:none;
+  height:240px;overflow-y:auto;
+  background:#010802;
+  border-top:1px solid var(--border);
+  padding:12px 24px;
+  font-family:var(--font-mono);
+  font-size:11px;line-height:1.7;
+}
+.log-box::-webkit-scrollbar{width:3px}
+.log-box::-webkit-scrollbar-thumb{background:var(--muted);border-radius:2px}
+.log-line{color:var(--muted-hi)}
+.log-line.is-info{color:#39ff14}
+.log-line.is-error{color:#e05060}
+.log-line.is-warn{color:#c08010}
+.log-line.is-done{color:var(--green)}
+
+/* ══════════════════════════════════════════════════════════
+   SCROLLBAR
+══════════════════════════════════════════════════════════ */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--muted);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--muted-hi)}
+</style>
+</head>
+<body>
+
+<!-- ════════════════ NAVBAR ════════════════ -->
+<nav class="nav">
+  <div class="nav-logo">
+    <div class="nav-logo-icon">🎮</div>
+    NEXUS INTEL
+  </div>
+  <div class="nav-status" id="navStatus">
+    <span class="dot"></span>
+    <span id="navStatusText">STANDBY</span>
+  </div>
+  <div class="nav-right">
+    <span style="font-family:'Share Tech Mono',monospace;font-size:11px;color:#2a7a3a;">
+      {{ username }}{% if is_admin %} <span style="color:#39ff14;font-size:9px;">ADMIN</span>{% endif %}
+    </span>
+    <a href="/logout" style="font-size:10px;font-weight:700;letter-spacing:1px;color:#0a2c0a;text-decoration:none;border:1px solid #0a2c0a;padding:5px 10px;border-radius:3px;transition:all .2s;" onmouseover="this.style.color='#ff3040';this.style.borderColor='#ff3040'" onmouseout="this.style.color='#0a2c0a';this.style.borderColor='#0a2c0a'">EXIT</a>
+    <button class="btn-scan" id="scanBtn" onclick="runNow()">
+      <div class="spin"></div>
+      <span class="scan-icon">▶</span>
+      SCAN NOW
+    </button>
+  </div>
+</nav>
+
+<!-- ════════════════ STATS ════════════════ -->
+<div class="stats-bar">
+  <div class="stat-card">
+    <div class="stat-label">Total Intel</div>
+    <div class="stat-num" id="statTotal">—</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Today</div>
+    <div class="stat-num" id="statToday">—</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Easy Access</div>
+    <div class="stat-num" id="statEasy">—</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Deployed</div>
+    <div class="stat-num" id="statApplied">—</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Top Priority</div>
+    <div class="stat-num" id="statBest">—</div>
+  </div>
+</div>
+
+<!-- ════════════════ FILTERS ════════════════ -->
+<div class="filters">
+
+  <!-- Row 1: Search + Platform + Score + Status -->
+  <div class="filter-row">
+    <input class="filter-input" type="text" id="searchInput"
+           placeholder="🔍  Search designation or corp…"
+           style="width:220px;" oninput="applyFilters()"/>
+
+    <span class="filter-label" style="margin-left:6px;">Source</span>
+    <div class="chip-row" id="platformChips">
+      <button class="chip active" id="pc-all" onclick="setPlatform('')">ALL</button>
+    </div>
+
+    <div class="score-wrap" style="margin-left:6px;">
+      <span class="filter-label">Priority ≥</span>
+      <input type="range" id="scoreRange" min="0" max="100" value="30"
+             oninput="document.getElementById('scoreVal').textContent=this.value;applyFilters()"/>
+      <span class="score-val" id="scoreVal">30</span>
+    </div>
+
+    <span class="filter-label" style="margin-left:6px;">Status</span>
+    <div class="chip-row">
+      <button class="chip active" id="as-all"  onclick="setApplied('')">ALL</button>
+      <button class="chip"        id="as-no"   onclick="setApplied('no')">PENDING</button>
+      <button class="chip"        id="as-yes"  onclick="setApplied('yes')">DEPLOYED</button>
+    </div>
+
+    <button class="btn-reset" onclick="resetFilters()">↺ RESET</button>
+  </div>
+
+  <!-- Row 2: Country -->
+  <div class="filter-row">
+    <span class="filter-label">Region</span>
+    <div class="country-scroll chip-row" id="countryChips">
+      <button class="chip active" id="cc-all" onclick="setCountry('')">🌐 ALL</button>
+      <!-- populated by JS -->
+    </div>
+  </div>
+
+  <!-- Row 3: Work Mode + Easy Apply -->
+  <div class="filter-row">
+    <span class="filter-label">Work Mode</span>
+    <div class="chip-row">
+      <button class="chip active"     id="wt-all"    onclick="setWorkType('')">ALL</button>
+      <button class="chip"            id="wt-remote" onclick="setWorkType('remote')">🌍 REMOTE</button>
+      <button class="chip"            id="wt-hybrid" onclick="setWorkType('hybrid')">🔀 HYBRID</button>
+      <button class="chip"            id="wt-onsite" onclick="setWorkType('on-site')">🏢 ON-SITE</button>
+    </div>
+    <button class="chip" id="easyChip" onclick="toggleEasy()" style="margin-left:16px;">
+      ⚡ EASY APPLY ONLY
+    </button>
+  </div>
+</div>
+
+<!-- ════════════════ TABLE ════════════════ -->
+<div class="table-section">
+  <div class="table-header">
+    <div class="table-title">Intel Feed</div>
+    <div class="table-count" id="tableCount">—</div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:32px;cursor:default">#</th>
+          <th onclick="sortBy('title')"    id="th-title">Designation</th>
+          <th onclick="sortBy('company')"  id="th-company">Corp</th>
+          <th onclick="sortBy('country')"  id="th-country">Region</th>
+          <th onclick="sortBy('platform')" id="th-platform">Source</th>
+          <th onclick="sortBy('work_type')"id="th-work_type">Mode</th>
+          <th>Access</th>
+          <th onclick="sortBy('score')"    id="th-score" class="sorted-desc">Priority</th>
+          <th onclick="sortBy('found_date')"id="th-found_date">Acquired</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="jobsTbody">
+        <tr><td colspan="10" class="empty-state">
+          <div class="empty-icon">◈</div>
+          <div class="empty-msg">LOADING INTEL FEED…</div>
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ════════════════ LOG ════════════════ -->
+<div class="log-section">
+  <div class="log-toggle" onclick="toggleLog()">
+    <div class="log-toggle-label">System Comms</div>
+    <span class="log-chevron" id="logChevron">▼</span>
+  </div>
+  <div class="log-box" id="logBox"></div>
+</div>
+
+<!-- ════════════════ JAVASCRIPT ════════════════ -->
+<script>
+// ── State ─────────────────────────────────────────────────
+let sortCol   = "score";
+let sortDir   = "desc";
+let easyOnly  = false;
+let workType  = "";
+let country   = "";
+let platform  = "";
+let applied   = "";
+let logOpen   = false;
+let logSrc    = null;
+let statsTimer = null;
+
+// ── Country → Flag emoji map ───────────────────────────────
+const FLAGS = {
+  "India":"🇮🇳","USA":"🇺🇸","UK":"🇬🇧","Canada":"🇨🇦","Australia":"🇦🇺",
+  "Germany":"🇩🇪","France":"🇫🇷","Poland":"🇵🇱","Netherlands":"🇳🇱",
+  "Sweden":"🇸🇪","Finland":"🇫🇮","Norway":"🇳🇴","Denmark":"🇩🇰",
+  "Singapore":"🇸🇬","Japan":"🇯🇵","South Korea":"🇰🇷","UAE":"🇦🇪",
+  "Spain":"🇪🇸","Ireland":"🇮🇪","Czech Republic":"🇨🇿","Romania":"🇷🇴",
+  "Ukraine":"🇺🇦","Portugal":"🇵🇹","Italy":"🇮🇹","Switzerland":"🇨🇭",
+  "Israel":"🇮🇱","Belgium":"🇧🇪","Austria":"🇦🇹","Brazil":"🇧🇷",
+  "Mexico":"🇲🇽","Argentina":"🇦🇷",
+};
+
+// ── Fetch + Render jobs ────────────────────────────────────
+async function loadJobs() {
+  const p = new URLSearchParams({
+    sort: sortCol, dir: sortDir,
+    platform, work_type: workType, country,
+    min_score: document.getElementById("scoreRange").value,
+    easy_only: easyOnly ? "true" : "false",
+    applied,
+    search: document.getElementById("searchInput").value.trim(),
+  });
+  try {
+    const jobs = await fetch(`/api/jobs?${p}`).then(r => r.json());
+    renderTable(jobs);
+  } catch(e) { console.error(e); }
+}
+
+function renderTable(jobs) {
+  const tbody = document.getElementById("jobsTbody");
+  document.getElementById("tableCount").textContent =
+    `${jobs.length} ASSET${jobs.length !== 1 ? "S" : ""} IDENTIFIED`;
+
+  if (!jobs.length) {
+    tbody.innerHTML = `<tr><td colspan="10" class="empty-state">
+      <div class="empty-icon">◈</div>
+      <div class="empty-msg">NO INTEL MATCHES FILTERS</div>
+      <div class="empty-sub">Adjust priority threshold or reset filters</div>
+    </td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = jobs.map((j, i) => {
+    const sc = j.score;
+    const rowCls  = j.applied ? "applied-row" : sc >= 70 ? "score-hi" : sc >= 45 ? "score-mid" : "score-lo";
+    const numCls  = sc >= 70 ? "on-green" : sc >= 45 ? "on-amber" : "on-muted";
+    const numCol  = sc >= 70 ? "var(--acid)" : sc >= 45 ? "var(--gold)" : "var(--muted-hi)";
+    const platCls = "plat-" + ((j.platform||"default").replace(/[^a-z_]/gi,"_").toLowerCase());
+    const wt      = (j.work_type||"").toLowerCase();
+    const wtCls   = wt==="remote"?"wtype-remote":wt==="hybrid"?"wtype-hybrid":"wtype-on-site";
+    const wtIcon  = wt==="remote"?"🌍":wt==="hybrid"?"🔀":"🏢";
+    const wtLabel = wt||"on-site";
+
+    const segs    = Array.from({length:8},(_,k)=>
+      `<span class="seg ${k < Math.round(sc/100*8) ? numCls : ''}"></span>`).join("");
+
+    const ctry    = j.country || "";
+    const flag    = FLAGS[ctry] || "📍";
+    const ctryEl  = ctry ? `${flag} ${ctry}` : `<span style="color:var(--muted)">—</span>`;
+
+    const easyEl  = j.easy_apply
+      ? `<span class="easy-badge">⚡ EASY</span>`
+      : `<span style="color:var(--muted);font-family:var(--font-mono);font-size:10px;">—</span>`;
+
+    const title   = (j.title||"—");
+    const titleTr = title.length > 46 ? title.substring(0,44)+"…" : title;
+    const company = (j.company||"—");
+    const compTr  = company.length > 20 ? company.substring(0,18)+"…" : company;
+
+    const fd      = (j.found_date||"").substring(0,10);
+
+    const applyBtn = j.applied
+      ? `<button class="btn-apply done" onclick="unmarkApplied(${j.id},this)" title="Undo">✓ DEPLOYED</button>`
+      : `<button class="btn-apply"      onclick="markApplied(${j.id},this)">DEPLOY</button>`;
+
+    return `<tr class="${rowCls}" data-id="${j.id}">
+      <td style="font-family:var(--font-mono);font-size:10px;color:var(--muted)">${i+1}</td>
+      <td>
+        <a class="job-link" href="${j.url}" target="_blank" title="${j.title||''}">${titleTr}</a>
+        <div class="job-company">${compTr}</div>
+      </td>
+      <td><span class="job-company">${compTr !== "—" ? "" : ""}</span>${compTr === "—" ? `<span style="color:var(--muted)">—</span>` : `<span style="font-size:12px;color:var(--text)">${compTr}</span>`}</td>
+      <td><span class="country-cell">${ctryEl}</span></td>
+      <td><span class="plat ${platCls}">${j.platform||"—"}</span></td>
+      <td><span class="wtype ${wtCls}">${wtIcon} ${wtLabel.toUpperCase()}</span></td>
+      <td>${easyEl}</td>
+      <td class="score-cell">
+        <span class="score-num" style="color:${numCol}">${sc}</span>
+        <span class="seg-bar">${segs}</span>
+      </td>
+      <td style="font-family:var(--font-mono);font-size:10px;color:var(--muted-hi)">${fd}</td>
+      <td class="actions">
+        <button class="btn-open" onclick="openJob(${j.id},this)">OPEN</button>
+        ${applyBtn}
+      </td>
+    </tr>`;
+  }).join("");
+
+  // Fix duplicate company column — simplify td[2]
+  document.querySelectorAll("#jobsTbody tr[data-id]").forEach((tr, i) => {
+    const j = jobs[i];
+    if (!j) return;
+    const comp = (j.company||"—");
+    const compTr = comp.length > 20 ? comp.substring(0,18)+"…" : comp;
+    tr.cells[2].innerHTML = `<span style="font-size:12px;color:var(--text)">${compTr}</span>`;
+  });
+}
+
+// ── Filter helpers ─────────────────────────────────────────
+function applyFilters() { loadJobs(); }
+
+function setPlatform(val) {
+  platform = val;
+  document.querySelectorAll("[id^='pc-']").forEach(b=>b.classList.remove("active"));
+  document.getElementById("pc-all").classList.toggle("active", !val);
+  if (val) {
+    const el = document.getElementById("pc-"+val);
+    if (el) el.classList.add("active");
+  }
+  loadJobs();
+}
+
+function setCountry(val) {
+  country = val;
+  document.querySelectorAll("[id^='cc-']").forEach(b=>b.classList.remove("active"));
+  const el = document.getElementById("cc-"+(val||"all"));
+  if (el) el.classList.add("active");
+  loadJobs();
+}
+
+function setWorkType(val) {
+  workType = val;
+  const map={"":"wt-all","remote":"wt-remote","hybrid":"wt-hybrid","on-site":"wt-onsite"};
+  Object.values(map).forEach(id=>document.getElementById(id)?.classList.remove("active","active-green","active-amber"));
+  const btn = document.getElementById(map[val]);
+  if (btn) {
+    const cls = val==="remote"?"active-green":val==="hybrid"?"active-amber":"active";
+    btn.classList.add(cls);
+  }
+  loadJobs();
+}
+
+function setApplied(val) {
+  applied = val;
+  ["as-all","as-no","as-yes"].forEach(id=>document.getElementById(id)?.classList.remove("active"));
+  const map={"":"as-all","no":"as-no","yes":"as-yes"};
+  document.getElementById(map[val])?.classList.add("active");
+  loadJobs();
+}
+
+function toggleEasy() {
+  easyOnly = !easyOnly;
+  document.getElementById("easyChip").classList.toggle("active-green", easyOnly);
+  document.getElementById("easyChip").classList.toggle("active", false);
+  loadJobs();
+}
+
+function resetFilters() {
+  document.getElementById("searchInput").value = "";
+  document.getElementById("scoreRange").value = 30;
+  document.getElementById("scoreVal").textContent = "30";
+  platform=""; workType=""; country=""; applied=""; easyOnly=false;
+  sortCol="score"; sortDir="desc";
+  updateSortHeaders();
+  setPlatform(""); setWorkType(""); setCountry(""); setApplied("");
+  document.getElementById("easyChip").classList.remove("active","active-green");
+}
+
+// ── Sort ──────────────────────────────────────────────────
+function sortBy(col) {
+  sortDir = sortCol===col ? (sortDir==="desc"?"asc":"desc") : "desc";
+  sortCol = col;
+  updateSortHeaders();
+  loadJobs();
+}
+function updateSortHeaders() {
+  document.querySelectorAll("thead th").forEach(th=>{
+    th.classList.remove("sorted-asc","sorted-desc");
+  });
+  const el = document.getElementById("th-"+sortCol);
+  if (el) el.classList.add(sortDir==="asc"?"sorted-asc":"sorted-desc");
+}
+
+// ── Actions ───────────────────────────────────────────────
+async function openJob(id, btn) {
+  const orig = btn.textContent;
+  btn.textContent = "✓ OPENED";
+  btn.style.color = "var(--green)";
+  await fetch(`/api/open/${id}`, {method:"POST"});
+  setTimeout(()=>{ btn.textContent=orig; btn.style.color=""; }, 2000);
+}
+
+async function markApplied(id, btn) {
+  await fetch(`/api/mark-applied/${id}`, {method:"POST"});
+  const tr = document.querySelector(`tr[data-id="${id}"]`);
+  if(tr){ tr.className="applied-row"; }
+  btn.textContent = "✓ DEPLOYED";
+  btn.classList.add("done");
+  btn.onclick = ()=>unmarkApplied(id,btn);
+  loadStats();
+}
+
+async function unmarkApplied(id, btn) {
+  await fetch(`/api/mark-unapplied/${id}`, {method:"POST"});
+  btn.textContent = "DEPLOY";
+  btn.classList.remove("done");
+  btn.onclick = ()=>markApplied(id,btn);
+  loadStats();
+  loadJobs();
+}
+
+// ── Run Now ───────────────────────────────────────────────
+async function runNow() {
+  const btn = document.getElementById("scanBtn");
+  if (btn.classList.contains("running")) return;
+  const res = await fetch("/api/run-now",{method:"POST"});
+  const d = await res.json();
+  if (d.status==="already_running") return;
+  setScraping(true);
+}
+
+function setScraping(v) {
+  const btn = document.getElementById("scanBtn");
+  const st  = document.getElementById("navStatusText");
+  btn.classList.toggle("running", v);
+  btn.disabled = v;
+  st.textContent = v ? "SCANNING…" : "STANDBY";
+}
+
+// ── Stats ─────────────────────────────────────────────────
+const prevVals = {};
+function animateNum(id, to) {
+  const el = document.getElementById(id);
+  if (!el || to == null) return;
+  const from = prevVals[id] ?? 0;
+  prevVals[id] = to;
+  if (from === to) { el.textContent = to; return; }
+  const dur = 600, start = performance.now();
+  function step(t) {
+    const p = Math.min((t-start)/dur, 1);
+    const ease = 1-Math.pow(1-p,3);
+    el.textContent = Math.round(from + (to-from)*ease);
+    if (p<1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+async function loadStats() {
+  try {
+    const d = await fetch("/api/stats").then(r=>r.json());
+    animateNum("statTotal",   d.total);
+    animateNum("statToday",   d.today);
+    animateNum("statEasy",    d.easy_apply);
+    animateNum("statApplied", d.applied);
+    animateNum("statBest",    d.best_score);
+
+    // Rebuild platform chips
+    const pc = document.getElementById("platformChips");
+    const curPlatform = platform;
+    pc.innerHTML = `<button class="chip ${!curPlatform?'active':''}" id="pc-all" onclick="setPlatform('')">ALL</button>`;
+    (d.platforms||[]).forEach(p=>{
+      const btn = document.createElement("button");
+      btn.className = "chip" + (p===curPlatform?" active":"");
+      btn.id = "pc-"+p;
+      btn.textContent = p.toUpperCase();
+      btn.onclick = ()=>setPlatform(p);
+      pc.appendChild(btn);
+    });
+
+    // Rebuild country chips
+    const cc = document.getElementById("countryChips");
+    const curCountry = country;
+    cc.innerHTML = `<button class="chip ${!curCountry?'active':''}" id="cc-all" onclick="setCountry('')">🌐 ALL</button>`;
+    (d.countries||[]).forEach(c=>{
+      const flag = FLAGS[c]||"📍";
+      const btn = document.createElement("button");
+      btn.className = "chip" + (c===curCountry?" active":"");
+      btn.id = "cc-"+c;
+      btn.textContent = `${flag} ${c.toUpperCase()}`;
+      btn.onclick = ()=>setCountry(c);
+      cc.appendChild(btn);
+    });
+
+    // Sync scraping state
+    const wasRunning = document.getElementById("scanBtn").classList.contains("running");
+    if (wasRunning && !d.scraping) { setScraping(false); loadJobs(); }
+    else if (d.scraping && !wasRunning) { setScraping(true); }
+  } catch(e) {}
+}
+
+// ── Log ───────────────────────────────────────────────────
+function toggleLog() {
+  logOpen = !logOpen;
+  const box  = document.getElementById("logBox");
+  const chev = document.getElementById("logChevron");
+  box.style.display = logOpen ? "block" : "none";
+  chev.classList.toggle("open", logOpen);
+  if (logOpen && !logSrc) startLog();
+}
+
+function startLog() {
+  const box = document.getElementById("logBox");
+  box.innerHTML = "";
+  logSrc = new EventSource("/api/logs/stream");
+  logSrc.onmessage = e => {
+    const line = JSON.parse(e.data);
+    if (!line) return;
+    const cls = line.includes("ERROR")?"is-error":
+                line.includes("WARNING")?"is-warn":
+                line.includes("complete")?"is-done":
+                line.includes("INFO")?"is-info":"";
+    const div = document.createElement("div");
+    div.className = "log-line "+cls;
+    div.textContent = "> "+line;
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+    while(box.children.length > 400) box.removeChild(box.firstChild);
+  };
+  logSrc.onerror = ()=>{
+    logSrc.close(); logSrc=null;
+    if(logOpen) setTimeout(startLog, 3000);
+  };
+}
+
+// ── Init ──────────────────────────────────────────────────
+document.addEventListener("DOMContentLoaded", ()=>{
+  loadStats();
+  loadJobs();
+  statsTimer = setInterval(loadStats, 5000);
+});
+</script>
+</body>
+</html>
