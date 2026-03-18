@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Database & logs (persist on server, not in repo)
+jobs.db
+*.db
+job_hunter.log
+*.log
+
+# Data directory (Docker volume)
+data/
+
+# Environment / secrets
+.env
+*.env
+
+# Resume (personal file)
+resume.pdf
+
+# OS
+.DS_Store
+Thumbs.db
