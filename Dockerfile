@@ -15,9 +15,6 @@ RUN pip install --no-cache-dir -r requirements.txt gunicorn
 
 COPY . .
 
-# Persist the database and logs as a volume
-VOLUME ["/app/data"]
-
 ENV DB_PATH=/app/data/jobs.db
 ENV LOG_PATH=/app/data/job_hunter.log
 ENV PYTHONUNBUFFERED=1
