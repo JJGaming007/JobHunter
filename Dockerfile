@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y wget curl unzip gnupg ca-certificates \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+RUN mkdir -p /app/data
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt gunicorn
 
